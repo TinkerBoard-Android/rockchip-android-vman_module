@@ -48,6 +48,8 @@ typedef enum EnumColorRange {
 
 typedef struct pq_hal_module {
 	struct hw_module_t common;
+	int dpy;
+	void (*init)(struct pq_hal_module *module);
 	int (*get_brightness)(struct pq_hal_module *module);
 	int (*set_brightness)(struct pq_hal_module *module, int value);
 	int (*get_contrast)(struct pq_hal_module *module);
@@ -85,8 +87,8 @@ typedef struct pq_hal_module {
 	int (*get_gamma_mode)(struct pq_hal_module *module);
 	int (*set_3dlut_mode)(struct pq_hal_module *module, int value);
 	int (*get_3dlut_mode)(struct pq_hal_module *module);
-	int (*set_3dlut_data_buff)(struct pq_hal_module *module, char *data);
-	int (*get_3dlut_data_buff)(struct pq_hal_module *module, char *data);
+	int (*set_3dlut_data_buff)(struct pq_hal_module *module, int index, char *data);
+	int (*get_3dlut_data_buff)(struct pq_hal_module *module, int index, char *data);
 	int (*reset_3dlut_data)(struct pq_hal_module *module);
 	ui_aspect_mode_t (*get_aspect_mode)(struct pq_hal_module *module);
 	int (*set_aspect_mode)(struct pq_hal_module *module, ui_aspect_mode_t value);
