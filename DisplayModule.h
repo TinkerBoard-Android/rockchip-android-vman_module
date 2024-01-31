@@ -18,6 +18,7 @@ __BEGIN_DECLS
 
 typedef struct display_hal_module {
 	struct hw_module_t common;
+	int dpy;
 	int (*get_display_enable)(struct display_hal_module *module);
 	int (*set_display_enable)(struct display_hal_module *module, int value);
 	int (*get_display_hdmi_enable)(struct display_hal_module *module);

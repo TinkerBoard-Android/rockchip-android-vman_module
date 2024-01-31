@@ -45,6 +45,7 @@ typedef struct StreamConfig {
 
 typedef struct sys_hal_module {
 	struct hw_module_t common;
+	int dpy;
 	int (*get_input_stream_config)(struct sys_hal_module *module, ui_stream_config_t* data);
 	int (*get_cur_signal_status)(struct sys_hal_module *module);
 	int (*get_cur_Source_Interlaced)(struct sys_hal_module *module);

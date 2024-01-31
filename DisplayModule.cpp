@@ -1,11 +1,31 @@
 #include <hardware/hardware.h>
 #include <log/log.h>
+#include <rockchip/hardware/outputmanager/1.0/IRkOutputManager.h>
 #include "DisplayModule.h"
 
 #ifdef LOG_TAG
 #undef LOG_TAG
 #define LOG_TAG "vman_display"
 #endif
+
+using namespace rockchip::hardware::outputmanager::V1_0;
+
+using ::rockchip::hardware::outputmanager::V1_0::IRkOutputManager;
+using ::rockchip::hardware::outputmanager::V1_0::Result;
+using android::hardware::hidl_handle;
+using android::hardware::hidl_string;
+using android::hardware::hidl_vec;
+using android::hardware::Return;
+using android::hardware::Void;
+using ::android::sp;
+
+sp<IRkOutputManager> mComposer = nullptr;
+
+static void get_service() {
+	if (mComposer == nullptr) {
+		mComposer = IRkOutputManager::getService();
+	}
+}
 
 /*
  * Get HDMI-TX status
@@ -81,7 +101,17 @@ static int set_display_resolution(struct display_hal_module *module, char* resol
  */
 static int get_display_hdcp_status(struct display_hal_module *module)
 {
-	return 0;
+	int ret = 0;
+	get_service();
+	if (mComposer != nullptr && module != nullptr) {
+		 mComposer->getHdcpEnableStatus(module->dpy,
+			 [&](const auto& tmpResult, const auto& tmpValue) {
+				if (tmpResult == Result::OK) {
+					ret = tmpValue;
+				}
+		});
+	}
+	return ret;
 }
 
 /*
@@ -91,7 +121,16 @@ static int get_display_hdcp_status(struct display_hal_module *module)
  */
 static int set_display_hdcp_status(struct display_hal_module *module, int value)
 {
-	return 0;
+	Result ret = Result::UNKNOWN;
+	get_service();
+	if (mComposer != nullptr && module != nullptr) {
+		ret = mComposer->setHdcpEnable(module->dpy, value);
+	}
+	if (ret == Result::OK) {
+		return 0;
+	} else {
+		return -1;
+	}
 }
 
 static struct hw_module_methods_t display_hal_module_methods =

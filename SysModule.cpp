@@ -1,5 +1,7 @@
+#include <cutils/properties.h>
 #include <hardware/hardware.h>
 #include <log/log.h>
+#include <rockchip/hardware/outputmanager/1.0/IRkOutputManager.h>
 #include "SysModule.h"
 
 #ifdef LOG_TAG
@@ -7,11 +9,34 @@
 #define LOG_TAG "vman_ays"
 #endif
 
+#define PROPERTY_MEAN_LUMA "vendor.tvinput.rkpq.mean.luma"
+#define DEFAULT_OVERSCAN_VALUE 100
+
+using namespace rockchip::hardware::outputmanager::V1_0;
+
+using ::rockchip::hardware::outputmanager::V1_0::IRkOutputManager;
+using ::rockchip::hardware::outputmanager::V1_0::Result;
+using android::hardware::hidl_handle;
+using android::hardware::hidl_string;
+using android::hardware::hidl_vec;
+using android::hardware::Return;
+using android::hardware::Void;
+using ::android::sp;
+
+sp<IRkOutputManager> mComposer = nullptr;
+
 /*
  * Get input timing information
  * @param data: ui_stream_config_t
  * @return Getresult [0: successfully, <0: failure]
  */
+
+static void get_service() {
+	if (mComposer == nullptr) {
+		mComposer = IRkOutputManager::getService();
+	}
+}
+
 static int get_input_stream_config(struct sys_hal_module *module, ui_stream_config_t* data)
 {
 	return 0;
@@ -99,6 +124,27 @@ static int set_arc_enable(struct sys_hal_module *module, int value)
  */
 static int get_overscan(struct sys_hal_module *module, ui_overscan_data_t *data)
 {
+	data->left = DEFAULT_OVERSCAN_VALUE;
+	data->top = DEFAULT_OVERSCAN_VALUE;
+	data->right = DEFAULT_OVERSCAN_VALUE;
+	data->bottom = DEFAULT_OVERSCAN_VALUE;
+	get_service();
+	if (mComposer != nullptr && module != nullptr) {
+		hidl_vec<uint32_t> hidlOverscan;
+		if (mComposer != nullptr && module != nullptr) {
+			mComposer->getOverscan(module->dpy, [&](const auto& tmpResult, const auto& tmpOverscan) {
+				if (tmpResult == Result::OK) {
+					hidlOverscan = tmpOverscan;
+				}
+			});
+		}
+		if (hidlOverscan.size() == 4) {
+			data->left = hidlOverscan[0];
+			data->top = hidlOverscan[1];
+			data->right = hidlOverscan[2];
+			data->bottom = hidlOverscan[3];
+		}
+	}
 	return 0;
 }
 
@@ -109,6 +155,13 @@ static int get_overscan(struct sys_hal_module *module, ui_overscan_data_t *data)
  */
 static int set_overscan(struct sys_hal_module *module, ui_overscan_data_t data)
 {
+	get_service();
+	if (mComposer != nullptr && module != nullptr) {
+		mComposer->setScreenScale(module->dpy, 0, data.left);
+		mComposer->setScreenScale(module->dpy, 1, data.top);
+		mComposer->setScreenScale(module->dpy, 2, data.right);
+		mComposer->setScreenScale(module->dpy, 3, data.bottom);
+	}
 	return 0;
 }
 
@@ -263,7 +316,7 @@ int set_dbc_enable(struct sys_hal_module *module, int value)
  */
 ui_panel_division_t get_panel_division(struct sys_hal_module *module)
 {
-	return 0;
+	return PANEL_DIVISION_1;
 }
 
 /*
@@ -363,7 +416,7 @@ int set_shake_screen_mode(struct sys_hal_module *module, int value)
  */
 int get_average_brightness(struct sys_hal_module *module)
 {
-	return 0;
+	return property_get_int32(PROPERTY_MEAN_LUMA, 0);
 }
 
 /*
@@ -372,7 +425,7 @@ int get_average_brightness(struct sys_hal_module *module)
  */
 ui_edid_mode_t get_hdmi_edid_mode(struct sys_hal_module *module)
 {
-	return 0;
+	return EDID_MODE_2K60HZ_YUV444;
 }
 
 /*
@@ -391,7 +444,7 @@ int set_hdmi_edid_mode(struct sys_hal_module *module, ui_edid_mode_t value)
  */
 ui_edid_mode_t get_pc_edid_mode(struct sys_hal_module *module)
 {
-	return 0;
+	return EDID_MODE_2K60HZ_YUV444;
 }
 
 /*

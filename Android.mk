@@ -47,7 +47,7 @@ include $(BUILD_SHARED_LIBRARY)
 # libvman-display.so
 # =========================================================
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := DisplayModule.c
+LOCAL_SRC_FILES := DisplayModule.cpp
 
 LOCAL_C_INCLUDES := \
         hardware/libhardware/include \
@@ -60,7 +60,13 @@ LOCAL_VENDOR_MODULE := true
 LOCAL_CLANG := true
 LOCAL_MODULE := libvman-display
 LOCAL_CFLAGS := -Wno-unused-parameter
-LOCAL_SHARED_LIBRARIES := liblog
+LOCAL_SHARED_LIBRARIES := liblog \
+                          libbinder \
+                          libbinder_ndk \
+                          libutils \
+                          libcutils \
+                          libhidlbase \
+                          rockchip.hardware.outputmanager@1.0
 include $(BUILD_SHARED_LIBRARY)
 
 # libvman-power.so
@@ -85,7 +91,7 @@ include $(BUILD_SHARED_LIBRARY)
 # libvman-sys.so
 # =========================================================
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := SysModule.c
+LOCAL_SRC_FILES := SysModule.cpp
 
 LOCAL_C_INCLUDES := \
         hardware/libhardware/include \
@@ -98,5 +104,11 @@ LOCAL_VENDOR_MODULE := true
 LOCAL_CLANG := true
 LOCAL_MODULE := libvman-sys
 LOCAL_CFLAGS := -Wno-unused-parameter
-LOCAL_SHARED_LIBRARIES := liblog
+LOCAL_SHARED_LIBRARIES := liblog \
+                          libbinder \
+                          libbinder_ndk \
+                          libutils \
+                          libcutils \
+                          libhidlbase \
+                          rockchip.hardware.outputmanager@1.0
 include $(BUILD_SHARED_LIBRARY)
