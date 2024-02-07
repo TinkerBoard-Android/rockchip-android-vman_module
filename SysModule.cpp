@@ -10,6 +10,7 @@
 #endif
 
 #define PROPERTY_MEAN_LUMA "vendor.tvinput.rkpq.mean.luma"
+#define PIXEL_SHIFT_PATH "/sys/class/drm/card0/video_port%d/pixel_shift"
 #define DEFAULT_OVERSCAN_VALUE 100
 
 using namespace rockchip::hardware::outputmanager::V1_0;
@@ -457,6 +458,62 @@ int set_pc_edid_mode(struct sys_hal_module *module, ui_edid_mode_t value)
 	return 0;
 }
 
+int set_screen_pixel_shift(struct sys_hal_module *module, int x, int y)
+{
+	char path[128];
+	char buf[16];
+	int fd = 0;
+	int ret = 0;
+	for (int i = 0; i < 4; i++) {
+		sprintf(path, PIXEL_SHIFT_PATH, i);
+		fd = open(path, O_WRONLY);
+		if (fd >= 0) {
+			break;
+		}
+	}
+	if (fd < 0) {
+		return -1;
+	}
+	sprintf(buf, "%d %d", x, y);
+	int len = write(fd, buf, strlen(buf));
+	if (len < 0) {
+		ALOGE("Error writing to %s: %s\n", path, buf);
+		ret = -1;
+	} else {
+		ret = 0;
+	}
+	close(fd);
+	return ret;
+}
+
+int get_screen_pixel_shift(struct sys_hal_module *module, int *x, int *y)
+{
+	char path[128];
+	char buf[64];
+	int fd = 0;
+	int ret = 0;
+	for (int i = 0; i < 4; i++) {
+		sprintf(path, PIXEL_SHIFT_PATH, i);
+		fd = open(path, O_WRONLY);
+		if (fd >= 0) {
+			break;
+		}
+	}
+	if (fd < 0) {
+		return -1;
+	}
+	int len = read(fd, buf, 64);
+	if (len < 0) {
+		ALOGE("Error read %s: len %d\n", path, len);
+		ret = -1;
+	} else {
+		sscanf(buf, "shift_x:%d, shift_y:%d", x, y);
+		ret = 0;
+	}
+	close(fd);
+	return ret;
+}
+
 static struct hw_module_methods_t sys_hal_module_methods =
 {
 	.open = NULL,
@@ -514,4 +571,6 @@ struct sys_hal_module HAL_MODULE_INFO_SYM =
     .set_hdmi_edid_mode = set_hdmi_edid_mode,
     .get_pc_edid_mode = get_pc_edid_mode,
     .set_pc_edid_mode = set_pc_edid_mode,
+    .set_screen_pixel_shift = set_screen_pixel_shift,
+    .get_screen_pixel_shift = get_screen_pixel_shift,
 };

@@ -87,6 +87,8 @@ typedef struct sys_hal_module {
 	int (*set_hdmi_edid_mode)(struct sys_hal_module *module, ui_edid_mode_t value);
 	ui_edid_mode_t (*get_pc_edid_mode)(struct sys_hal_module *module);
 	int (*set_pc_edid_mode)(struct sys_hal_module *module, ui_edid_mode_t value);
+	int (*set_screen_pixel_shift)(struct sys_hal_module *module, int x, int y);
+	int (*get_screen_pixel_shift)(struct sys_hal_module *module, int *x, int *y);
 } sys_hal_module_t;
 
 __END_DECLS
