@@ -1,13 +1,122 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/*
+ * VMAN -- SysModule
+ *
+ * Copyright (C) 2024 Rockchip Electronics Co., Ltd.
+ *
+ */
+
 #include <cutils/properties.h>
 #include <hardware/hardware.h>
 #include <log/log.h>
 #include <rockchip/hardware/outputmanager/1.0/IRkOutputManager.h>
+#include <dirent.h>
 #include "SysModule.h"
 
 #ifdef LOG_TAG
 #undef LOG_TAG
 #define LOG_TAG "vman_ays"
 #endif
+/*********** Private definition *************/
+#define UN_USED(x) (void)(x)
+#define DEFAULT_CSI_PATH    "/dev/v4l-subdev2"
+#define DEFAULT_HDMIRX_PATH "/dev/video20"
+#define RKMODULE_GET_HDMI_MODE       \
+        _IOR('V', BASE_VIDIOC_PRIVATE + 34, __u32)
+
+/*********** Private variable *************/
+std::string gDevicePath = DEFAULT_CSI_PATH;
+const int kMaxDevicePathLen = 256;
+const char* kDevicePath = "/dev/";
+char v4l2SubDevPath[kMaxDevicePathLen];
+char kPrefix[] = "video";
+const int kPrefixLen = sizeof(kPrefix) - 1;
+const char kCsiPrefix[] = "v4l-subdev";
+const int kCsiPrefixLen = sizeof(kCsiPrefix) - 1;
+const char kHdmiNodeName[] = "rk_hdmirx";
+/******************************************/
+/*
+ * SysModule init
+ * hdmi-in find device path, check hdmirx or mipi-csi.
+ * @param data: ui_device_config_t
+ * @return int 1: success, 0: fail
+ */
+int sysmodule_init(ui_device_type eType)
+{
+	int ret, videofd;
+	DIR* devdir = opendir(kDevicePath);
+	struct dirent* de;
+
+	if(devdir == 0) {
+		ALOGE("%s: cannot open %s! Exiting threadloop", __FUNCTION__, kDevicePath);
+		return -1;
+	}
+
+	while ((de = readdir(devdir)) != 0) {
+		if (eType == HDMIIN_TYPE_HDMIRX && !strncmp(kPrefix, de->d_name, kPrefixLen)) {
+			ALOGI("v4l device %s found\n", de->d_name);
+			char v4l2DevicePath[kMaxDevicePathLen];
+			char v4l2DeviceDriver[16];
+			char gadget_video[100] = {0};
+
+			sprintf(gadget_video, "/sys/class/video4linux/%s/function_name\n", de->d_name);
+			if (access(gadget_video, F_OK) == 0) {
+				ALOGI("/dev/%s is uvc gadget device, don't open it!\n", de->d_name);
+				continue;
+			}
+			snprintf(v4l2DevicePath, kMaxDevicePathLen,"%s%s", kDevicePath, de->d_name);
+			videofd = open(v4l2DevicePath, O_RDWR);
+
+			struct v4l2_capability cap;
+			if (videofd < 0){
+				ALOGE("%s open v4l2DevicePath:%x failed!\n", __FUNCTION__, videofd);
+				continue;
+			} else {
+				ALOGI("%s open device %s successful.\n", __FUNCTION__, v4l2DevicePath);
+				ret = ioctl(videofd, VIDIOC_QUERYCAP, &cap);
+				if (ret < 0) {
+					ALOGE("VIDIOC_QUERYCAP Failed, error\n");
+					close(videofd);
+					continue;
+				}
+			}
+			snprintf(v4l2DeviceDriver, 16,"%s",cap.driver);
+			ALOGI("VIDIOC_QUERYCAP driver=%s,%s\n", cap.driver,v4l2DeviceDriver);
+			ALOGI("VIDIOC_QUERYCAP card=%s\n", cap.card);
+
+			if(!strncmp(kHdmiNodeName, v4l2DeviceDriver, sizeof(kHdmiNodeName)-1)){
+				gDevicePath = v4l2DevicePath;
+				close(videofd);
+				return 0;
+			} else {
+				close(videofd);
+				ALOGI("isnot hdmirx,VIDIOC_QUERYCAP driver=%s\n", cap.driver);
+			}
+		} else if (eType == HDMIIN_TYPE_MIPICSI && !strncmp(kCsiPrefix, de->d_name, kCsiPrefixLen)) {
+			ALOGI(" v4l device %s found", de->d_name);
+			snprintf(v4l2SubDevPath, kMaxDevicePathLen,"%s%s", kDevicePath, de->d_name);
+			videofd = open(v4l2SubDevPath, O_RDWR);
+			if (videofd < 0) {
+				ALOGE("[%s %d] mHinDevEventHandle:%x\n", __FUNCTION__, __LINE__, videofd);
+				continue;
+			} else {
+				ALOGI("%s open device %s successful.\n", __FUNCTION__, v4l2SubDevPath);
+				uint32_t ishdmi = 0;
+				ret = ioctl(videofd, RKMODULE_GET_HDMI_MODE, (void*)&ishdmi);
+				if (ret < 0 || !ishdmi) {
+					ALOGD("RKMODULE_GET_HDMI_MODE %s failed, ret=%d, ishdmi=%d\n", v4l2SubDevPath, ret, ishdmi);
+					close(videofd);
+				} else {
+					gDevicePath = v4l2SubDevPath;
+					ALOGI("find success dev: %s\n", v4l2SubDevPath);
+					close(videofd);
+					return 0;
+				}
+			}
+		}
+	}
+	return -1;
+}
 
 #define PROPERTY_MEAN_LUMA "vendor.tvinput.rkpq.mean.luma"
 #define PIXEL_SHIFT_PATH "/sys/class/drm/card0/video_port%d/pixel_shift"
@@ -40,16 +149,73 @@ static void get_service() {
 
 static int get_input_stream_config(struct sys_hal_module *module, ui_stream_config_t* data)
 {
-	return 0;
+    int ret, fd = -1;
+    int interlace = 0, fps = 0;
+    char *dev = const_cast<char*>(gDevicePath.c_str());
+    struct v4l2_dv_timings dv_timings;
+
+    UN_USED(module);
+    fd = open(dev, O_RDWR, 0);
+    if (fd < 0) {
+            ALOGE("%s, fd is err\n", __func__);
+            return -1;
+    }
+
+    ret = ioctl(fd, VIDIOC_SUBDEV_QUERY_DV_TIMINGS, &dv_timings);
+    if (ret < 0) {
+            ALOGE("VIDIOC_SUBDEV_QUERY_DV_TIMINGS fail, ret: %d\n", ret);
+            close(fd);
+            return -1;
+    }
+    ret = ioctl(fd, RK_HDMIRX_CMD_GET_SCAN_MODE, &interlace);
+    if (ret < 0) {
+            ALOGE("RK_HDMIRX_CMD_GET_SCAN_MODE fail, ret: %d\n", ret);
+            close(fd);
+            return -1;
+    }
+    ret = ioctl(fd, RK_HDMIRX_CMD_GET_FPS, &fps);
+    if (ret < 0) {
+            ALOGE("RK_HDMIRX_CMD_GET_FPS fail, ret: %d\n", ret);
+            close(fd);
+            return -1;
+    }
+    data->width = dv_timings.bt.width;
+    data->height = dv_timings.bt.height;
+    data->interlace = interlace;
+    data->initFps = fps;
+    data->Vfreq = fps;
+    data->Hfreq = 0;    //not api from driver
+    close(fd);
+
+    return 0;
 }
 
 /*
- * Get input Interlaced status
+ * Get input signal status
  * @return int 1:Normal, 0: No Signal
  */
 static int get_cur_signal_status(struct sys_hal_module *module)
 {
-	return 0;
+    int ret, fd = -1;
+    int state = 0;
+    char *dev = const_cast<char*>(gDevicePath.c_str());
+
+    UN_USED(module);
+    fd = open(dev, O_RDWR, 0);
+    if (fd < 0) {
+            ALOGE("%s, fd is err\n", __func__);
+            return -1;
+    }
+
+    ret = ioctl(fd, RK_HDMIRX_CMD_GET_SIGNAL_STABLE_STATUS, &state);
+    if (ret < 0) {
+            ALOGE("RK_HDMIRX_CMD_GET_SIGNAL_STABLE_STATUS fail, ret: %d\n", ret);
+            close(fd);
+            return -1;
+    }
+    close(fd);
+
+	return (state > 0)? 1 : 0;
 }
 
 /*
@@ -58,7 +224,26 @@ static int get_cur_signal_status(struct sys_hal_module *module)
  */
 static int get_cur_Source_Interlaced(struct sys_hal_module *module)
 {
-	return 0;
+    int ret, fd = -1;
+    int state = 0;
+    char *dev = const_cast<char*>(gDevicePath.c_str());
+
+    UN_USED(module);
+    fd = open(dev, O_RDWR, 0);
+    if (fd < 0) {
+            ALOGE("%s, fd is err\n", __func__);
+            return -1;
+    }
+
+    ret = ioctl(fd, RK_HDMIRX_CMD_GET_SCAN_MODE, &state);
+    if (ret < 0) {
+            ALOGE("RK_HDMIRX_CMD_GET_SCAN_MODE fail, ret: %d\n", ret);
+            close(fd);
+            return -1;
+    }
+    close(fd);
+
+    return (state > 0)? 1 : 0;
 }
 
 /*
@@ -67,7 +252,26 @@ static int get_cur_Source_Interlaced(struct sys_hal_module *module)
  */
 static int get_cur_source_dvi_mode(struct sys_hal_module *module)
 {
-	return 0;
+    int ret, fd = -1;
+    int state = 0;
+    char *dev = const_cast<char*>(gDevicePath.c_str());
+
+    UN_USED(module);
+    fd = open(dev, O_RDWR, 0);
+    if (fd < 0) {
+            ALOGE("%s, fd is err\n", __func__);
+            return -1;
+    }
+
+    ret = ioctl(fd, RK_HDMIRX_CMD_GET_INPUT_MODE, &state);
+    if (ret < 0) {
+            ALOGE("RK_HDMIRX_CMD_GET_INPUT_MODE fail, ret: %d\n", ret);
+            close(fd);
+            return -1;
+    }
+    close(fd);
+
+    return (state > 0)? 1 : 0;
 }
 
 /*
@@ -76,7 +280,26 @@ static int get_cur_source_dvi_mode(struct sys_hal_module *module)
  */
 static int get_cur_source_hdcp_encrypted(struct sys_hal_module *module)
 {
-	return 0;
+    int ret, fd = -1;
+    int state = 0;
+    char *dev = const_cast<char*>(gDevicePath.c_str());
+
+    UN_USED(module);
+    fd = open(dev, O_RDWR, 0);
+    if (fd < 0) {
+            ALOGE("%s, fd is err\n", __func__);
+            return -1;
+    }
+
+    ret = ioctl(fd, RK_HDMIRX_CMD_GET_HDCP_STATUS, &state);
+    if (ret < 0) {
+            ALOGE("RK_HDMIRX_CMD_GET_HDCP_STATUS fail, ret: %d\n", ret);
+            close(fd);
+            return -1;
+    }
+    close(fd);
+
+    return (state > 0)? 1 : 0;
 }
 
 /*
@@ -330,11 +553,6 @@ int set_panel_division(struct sys_hal_module *module, ui_panel_division_t value)
 	return 0;
 }
 
-
-
-
-
-
 /*
 * Get VBO swing
 * @return  VBO swing, range[0-255]
@@ -424,9 +642,28 @@ int get_average_brightness(struct sys_hal_module *module)
  * Get HDMI EDID
  * @return EDID, range[ui_edid_mode_t]
  */
-ui_edid_mode_t get_hdmi_edid_mode(struct sys_hal_module *module)
+int get_hdmi_edid_mode(struct sys_hal_module *module)
 {
-	return EDID_MODE_2K60HZ_YUV444;
+    int ret, fd = -1;
+    ui_edid_mode_t edid_mode = EDID_MODE_4K60HZ_YUV444;
+    char *dev = const_cast<char*>(gDevicePath.c_str());
+
+    UN_USED(module);
+    fd = open(dev, O_RDWR, 0);
+    if (fd < 0) {
+            ALOGE("%s, fd is err\n", __func__);
+            return -1;
+    }
+
+    ret = ioctl(fd, RK_HDMIRX_CMD_GET_EDID_MODE, &edid_mode);
+    if (ret < 0) {
+            ALOGE("RK_HDMIRX_CMD_GET_EDID_MODE fail, ret: %d\n", ret);
+            close(fd);
+            return -1;
+    }
+    close(fd);
+
+    return edid_mode;
 }
 
 /*
@@ -436,7 +673,26 @@ ui_edid_mode_t get_hdmi_edid_mode(struct sys_hal_module *module)
  */
 int set_hdmi_edid_mode(struct sys_hal_module *module, ui_edid_mode_t value)
 {
-	return 0;
+    int ret, fd = -1;
+    ui_edid_mode_t edid_mode = value;
+    char *dev = const_cast<char*>(gDevicePath.c_str());
+
+    UN_USED(module);
+    fd = open(dev, O_RDWR, 0);
+    if (fd < 0) {
+            ALOGE("%s, fd is err\n", __func__);
+            return -1;
+    }
+
+    ret = ioctl(fd, RK_HDMIRX_CMD_SET_EDID_MODE, &edid_mode);
+    if (ret < 0) {
+            ALOGE("RK_HDMIRX_CMD_SET_EDID_MODE fail, ret: %d\n", ret);
+            close(fd);
+            return -1;
+    }
+    close(fd);
+
+    return 0;
 }
 
 /*
@@ -530,6 +786,7 @@ struct sys_hal_module HAL_MODULE_INFO_SYM =
         .author = "The SYS Project",
         .methods = &sys_hal_module_methods,
    },
+    .sysmodule_init = sysmodule_init,
     .get_input_stream_config = get_input_stream_config,
     .get_cur_signal_status = get_cur_signal_status,
     .get_cur_Source_Interlaced = get_cur_Source_Interlaced,

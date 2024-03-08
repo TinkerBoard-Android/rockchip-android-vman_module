@@ -7,6 +7,17 @@
 #include <sys/types.h>
 #include <hardware/hardware.h>
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <getopt.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <linux/v4l2-subdev.h>
+#include <rk_hdmirx_config.h>
+#include <linux/videodev2.h>
+#include <sys/ioctl.h>
+#include <string.h>
+
 __BEGIN_DECLS
 
 #define SYS_HAL_MODULE_API_VERSION  HARDWARE_MODULE_API_VERSION(0, 1)
@@ -27,6 +38,7 @@ typedef enum EnumEdidMode {
 	EDID_MODE_4K30HZ_YUV444,
 	EDID_MODE_4K60HZ_YUV444,
 	EDID_MODE_4K60HZ_YUV420,
+	EDID_MODE_ERR,
 } ui_edid_mode_t;
 
 typedef struct DataOverScan {
@@ -41,11 +53,19 @@ typedef struct StreamConfig {
 	int height;
 	int interlace;
 	int initFps;
+	int Hfreq;
+	int Vfreq;
 } ui_stream_config_t;
+
+typedef enum HdmiInType {
+	HDMIIN_TYPE_HDMIRX = 0x0,
+	HDMIIN_TYPE_MIPICSI = 0x1,
+} ui_device_type;
 
 typedef struct sys_hal_module {
 	struct hw_module_t common;
 	int dpy;
+	int (*sysmodule_init)(ui_device_type eType);
 	int (*get_input_stream_config)(struct sys_hal_module *module, ui_stream_config_t* data);
 	int (*get_cur_signal_status)(struct sys_hal_module *module);
 	int (*get_cur_Source_Interlaced)(struct sys_hal_module *module);
@@ -83,7 +103,7 @@ typedef struct sys_hal_module {
 	int (*get_shake_screen_mode)(struct sys_hal_module *module);
 	int (*set_shake_screen_mode)(struct sys_hal_module *module, int value);
 	int (*get_average_brightness)(struct sys_hal_module *module);
-	ui_edid_mode_t (*get_hdmi_edid_mode)(struct sys_hal_module *module);
+	int (*get_hdmi_edid_mode)(struct sys_hal_module *module);
 	int (*set_hdmi_edid_mode)(struct sys_hal_module *module, ui_edid_mode_t value);
 	ui_edid_mode_t (*get_pc_edid_mode)(struct sys_hal_module *module);
 	int (*set_pc_edid_mode)(struct sys_hal_module *module, ui_edid_mode_t value);
