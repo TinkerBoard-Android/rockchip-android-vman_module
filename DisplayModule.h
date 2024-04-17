@@ -6,7 +6,8 @@
 #include <sys/cdefs.h>
 #include <sys/types.h>
 #include <hardware/hardware.h>
-
+#include <iostream>
+#include <vector>
 __BEGIN_DECLS
 
 #define DISPLAY_HAL_MODULE_API_VERSION  HARDWARE_MODULE_API_VERSION(0, 1)
@@ -23,9 +24,9 @@ typedef struct display_hal_module {
 	int (*set_display_enable)(struct display_hal_module *module, int value);
 	int (*get_display_hdmi_enable)(struct display_hal_module *module);
 	int (*set_display_hdmi_enable)(struct display_hal_module *module, int value);
-	int (*get_display_support_resolution_list)(struct display_hal_module *module, char resolutionList[][20]);
-	int (*get_display_resolution)(struct display_hal_module *module, char* resolution);
-	int (*set_display_resolution)(struct display_hal_module *module, char* resolution);
+	int (*get_display_support_resolution_list)(struct display_hal_module* module, std::vector<std::string>& resolutionList);
+	std::string (*get_display_resolution)(struct display_hal_module* module);
+	int (*set_display_resolution)(struct display_hal_module* module, const std::string& resolution);
 	int (*get_display_hdcp_status)(struct display_hal_module *module);
 	int (*set_display_hdcp_status)(struct display_hal_module *module, int value);
 } display_hal_module_t;

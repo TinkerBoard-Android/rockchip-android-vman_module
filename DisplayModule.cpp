@@ -27,23 +27,181 @@ static void get_service() {
 	}
 }
 
-/*
- * Get HDMI-TX status
- * @return HDMI-TX status, range[0-1]
- */
-static int get_display_enable(struct display_hal_module *module)
+#define DRM_MODE_CONNECTOR_HDMIA 11
+
+#define HDMI_A_1_STATUS		"sys/class/drm/card0-HDMI-A-1/status"
+#define HDMI_A_2_STATUS		"sys/class/drm/card0-HDMI-A-2/status"
+#define STATUS_ON		"on"
+#define STATUS_OFF		"off"
+#define STATUS_DETECT		"detect"
+
+enum connector_state {
+	CONN_ON = 0,
+	CONN_OFF,
+	CONN_DETECT,
+};
+
+enum hdmi_port {
+	HDMI_PORT1 = 1,
+	HDMI_PORT2,
+};
+
+static int get_hdmi_status(enum hdmi_port port)
 {
+	int ret, fd;
+	char statebuf[20];
+	char node[128];
+
+	memset(node, 0, 128);
+	if (port == HDMI_PORT1)
+		strcpy(node, HDMI_A_1_STATUS);
+	else
+		strcpy(node, HDMI_A_2_STATUS);
+	fd = open(node, O_RDONLY);
+	if (fd < 0){
+		ALOGD("%s:%d", __FUNCTION__, __LINE__);
+		return 0;
+	}
+	ret = read(fd, statebuf, sizeof(statebuf));
+	close(fd);
+	if (ret < 0) {
+		ALOGD("%s:%d", __FUNCTION__, __LINE__);
+		return 0;
+	}
+	if (!strcmp(statebuf, "connected\n")) {
+		ALOGD("%s:%d", __FUNCTION__, __LINE__);
+		return 1;
+	}
+		ALOGD("%s:%d", __FUNCTION__, __LINE__);
+
 	return 0;
 }
 
-/*
- * Set HDMI-TX status
- * @param value: status, range[0-1]
- * @return result [00: successfully, <0: failure]
- */
+static int set_hdmi_status(enum hdmi_port port, enum connector_state state)
+{
+	int ret, fd;
+	char statebuf[20];
+	char node[128];
+
+	memset(node, 0, 128);
+	memset(statebuf, 0, 20);
+	if (port == HDMI_PORT1)
+		strcpy(node, HDMI_A_1_STATUS);
+	else
+		strcpy(node, HDMI_A_2_STATUS);
+
+	if (state == CONN_ON)
+		strcpy(statebuf, STATUS_ON);
+	else if (state == CONN_OFF)
+		strcpy(statebuf, STATUS_OFF);
+	else
+		strcpy(statebuf, STATUS_DETECT);
+	fd = open(node, O_WRONLY);
+        if (fd < 0) {
+		ALOGD("%s:%d", __FUNCTION__, __LINE__);
+                return -1;
+        }
+	ret = write(fd, statebuf, strlen(statebuf));
+	close(fd);
+	if (ret < 0) {
+		ALOGD("%s:%d", __FUNCTION__, __LINE__);
+		return -1;
+	}
+		ALOGD("%s:%d", __FUNCTION__, __LINE__);
+
+	return 0;
+}
+
+ /*
+  * Get HDMI-TX status
+  * @return HDMI-TX status, range[0-1]
+  */
+static int get_display_enable(struct display_hal_module *module)
+{
+	hidl_vec<RkConnectorInfo> minfo;
+	int ret = 0, portid = 0;;
+
+	get_service();
+	if (mComposer == nullptr || module == nullptr)
+		return -1;
+	mComposer->getConnectorInfo([&](const auto& tmpResult, const auto& tmpInfo) {
+		ALOGD("%s:%d", __FUNCTION__, __LINE__);
+		if (tmpResult == Result::OK) {
+			minfo = tmpInfo;
+			ret = 0;
+			ALOGD("%s:%d", __FUNCTION__, __LINE__);
+		} else {
+			ret = -1;
+			ALOGD("%s:%d", __FUNCTION__, __LINE__);
+		}
+	});
+	for (size_t c=0;c<minfo.size();c++) {
+		RkConnectorInfo tmpConnectorInfo = minfo[c];
+		if (tmpConnectorInfo.type == DRM_MODE_CONNECTOR_HDMIA) {
+			portid++;
+			if (c == module->dpy) {
+				if (portid == 1) {
+					ALOGD("%s:%d", __FUNCTION__, __LINE__);
+					ret = get_hdmi_status(HDMI_PORT1);
+				} else if (portid == 2) {
+					ALOGD("%s:%d", __FUNCTION__, __LINE__);
+					ret = get_hdmi_status(HDMI_PORT2);
+				}
+				break;
+			}
+		}
+	}
+
+	return ret;
+}
 static int set_display_enable(struct display_hal_module *module, int value)
 {
-	return 0;
+	hidl_vec<RkConnectorInfo> minfo;
+	int ret = 0, portid = 0;;
+
+	get_service();
+	if (mComposer == nullptr || module == nullptr)
+		return -1;
+	mComposer->getConnectorInfo([&](const auto& tmpResult, const auto& tmpInfo) {
+		if (tmpResult == Result::OK) {
+			minfo = tmpInfo;
+			ret = 0;
+			ALOGD("%s:%d", __FUNCTION__, __LINE__);
+		} else {
+			ret = -1;
+			ALOGD("%s:%d", __FUNCTION__, __LINE__);
+		}
+	});
+	for (size_t c=0;c<minfo.size();c++) {
+		RkConnectorInfo tmpConnectorInfo = minfo[c];
+		if (tmpConnectorInfo.type == DRM_MODE_CONNECTOR_HDMIA) {
+			portid++;
+			if (c == module->dpy) {
+				if (portid == 1) {
+					if (value == 1) {
+						set_hdmi_status(HDMI_PORT1, CONN_ON);
+						set_hdmi_status(HDMI_PORT1, CONN_DETECT);
+						ALOGD("%s:%d", __FUNCTION__, __LINE__);
+					} else {
+						set_hdmi_status(HDMI_PORT1, CONN_OFF);
+						ALOGD("%s:%d", __FUNCTION__, __LINE__);
+					}
+				} else if (portid == 2) {
+					if (value == 1) {
+						set_hdmi_status(HDMI_PORT2, CONN_ON);
+						set_hdmi_status(HDMI_PORT2, CONN_DETECT);
+						ALOGD("%s:%d", __FUNCTION__, __LINE__);
+					} else {
+						set_hdmi_status(HDMI_PORT2, CONN_OFF);
+						ALOGD("%s:%d", __FUNCTION__, __LINE__);
+					}
+				}
+				break;
+			}
+		}
+	}
+
+	return ret;
 }
 
 /*
@@ -70,9 +228,36 @@ static int set_display_hdmi_enable(struct display_hal_module *module, int value)
  * @param resolutionList: resolution list, resolution is a string, format: "3840x2160p60"
  * @return result[0: successfully, <0: failure]
  */
-static int get_display_support_resolution_list(struct display_hal_module *module, char resolutionList[][20])
-{
-	return 0;
+static int get_display_support_resolution_list(struct display_hal_module* module, std::vector<std::string>& resolutionList) {
+	int ret = 0;
+	std::string info;
+	hidl_vec<RkDrmMode> mModes;
+	std::string info_interlace = "p";
+	get_service();
+	if (mComposer == nullptr || module == nullptr) {
+		return -1;
+	}
+
+	mComposer->getDisplayModes(module->dpy, [&](const auto& tmpResult, const auto& tmpModes) {
+		if (tmpResult == Result::OK) {
+			mModes = tmpModes;
+			ret = 0;
+		} else {
+			ret = -1;
+		}
+	});
+
+	for (size_t c = 0; c < mModes.size(); c++) {
+		RkDrmMode tmpMode = mModes[c];
+		if (tmpMode.interlaceFlag)
+			info_interlace = "i";
+		else
+			info_interlace = "p";
+		std::string resolution = std::to_string(tmpMode.width) + "x" + std::to_string(tmpMode.height) + info_interlace + std::to_string(tmpMode.refreshRate);
+		resolutionList.push_back(resolution);
+		std::cout << "Resolution: " << resolution << std::endl;
+	}
+	return ret;
 }
 
 /*
@@ -80,9 +265,26 @@ static int get_display_support_resolution_list(struct display_hal_module *module
  * @param resolution: resolution list, resolution is a string, format: "3840x2160p60"
  * @return result[0: successfully, <0: failure]
  */
-static int get_display_resolution(struct display_hal_module *module, char* resolution)
-{
-	return 0;
+std::string get_display_resolution(struct display_hal_module* module) {
+	if (module == nullptr) {
+		return "";
+	}
+
+	get_service();
+	if (mComposer == nullptr) {
+		return "";
+	}
+
+	std::string resolution;
+	mComposer->getCurMode(module->dpy, [&](const auto& tmpResult, const auto& tmpMode) {
+		if (tmpResult == Result::OK) {
+			resolution = tmpMode;
+		} else {
+			resolution = "";
+		}
+	});
+
+	return resolution;
 }
 
 /*
@@ -90,9 +292,19 @@ static int get_display_resolution(struct display_hal_module *module, char* resol
  * @param resolution: resolution list, resolution is a string, format: "3840x2160p60"
  * @return result[0: successfully, <0: failure]
  */
-static int set_display_resolution(struct display_hal_module *module, char* resolution)
-{
-	return 0;
+static int set_display_resolution(struct display_hal_module* module, const std::string& resolution) {
+	if (module == nullptr) {
+		return -1;
+	}
+
+	get_service();
+	if (mComposer == nullptr) {
+		return -1;
+	}
+
+	Result res = mComposer->setMode(module->dpy, resolution);
+
+	return (res == Result::OK ? 0 : -1);
 }
 
 /*
