@@ -345,6 +345,33 @@ static int set_display_hdcp_status(struct display_hal_module *module, int value)
 	}
 }
 
+static int get_extend_display_en_dvi_status(struct display_hal_module *module) {
+	int ret = 0;
+	get_service();
+	if (mComposer != nullptr && module != nullptr) {
+		mComposer->getDviStatus(module->dpy,
+			[&](const auto& tmpResult, const auto& tmpValue) {
+				if (tmpResult == Result::OK) {
+					ret = tmpValue;
+				}
+		});
+	}
+	return ret;
+}
+
+static int set_extend_display_en_dvi_status(struct display_hal_module *module, int value) {
+	Result ret = Result::UNKNOWN;
+	get_service();
+	if (mComposer != nullptr && module != nullptr) {
+	    ret = mComposer->setDviStatus(module->dpy, value);
+	}
+	if (ret == Result::OK) {
+		return 0;
+	} else {
+		return -1;
+	}
+}
+
 static struct hw_module_methods_t display_hal_module_methods =
 {
 	.open = NULL,
@@ -371,4 +398,6 @@ struct display_hal_module HAL_MODULE_INFO_SYM =
 	.set_display_resolution = set_display_resolution,
 	.get_display_hdcp_status = get_display_hdcp_status,
 	.set_display_hdcp_status = set_display_hdcp_status,
+	.get_extend_display_en_dvi_status = get_extend_display_en_dvi_status,
+	.set_extend_display_en_dvi_status = set_extend_display_en_dvi_status,
 };

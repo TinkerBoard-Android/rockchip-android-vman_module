@@ -29,6 +29,8 @@ typedef struct display_hal_module {
 	int (*set_display_resolution)(struct display_hal_module* module, const std::string& resolution);
 	int (*get_display_hdcp_status)(struct display_hal_module *module);
 	int (*set_display_hdcp_status)(struct display_hal_module *module, int value);
+	int (*get_extend_display_en_dvi_status)(struct display_hal_module *module);
+	int (*set_extend_display_en_dvi_status)(struct display_hal_module *module, int value);
 } display_hal_module_t;
 
 __END_DECLS

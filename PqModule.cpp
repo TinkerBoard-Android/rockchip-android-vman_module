@@ -16,6 +16,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "PqModule.h"
+#include <cutils/properties.h>
 
 #ifdef LOG_TAG
 #undef LOG_TAG
@@ -61,17 +62,12 @@ static int get_brightness(struct pq_hal_module *module)
 {
 	int ret = DEFAULT_BRIGHTNESS;
 	if (mComposer != nullptr && module != nullptr) {
-		hidl_vec<uint32_t> hidlBcsh;
-		if (mComposer != nullptr && module != nullptr) {
-			mComposer->getBcsh(module->dpy, [&](const auto& tmpResult, const auto& tmpBcshs) {
+		 mComposer->getSWBrightness(module->dpy,
+			 [&](const auto& tmpResult, const auto& tmpValue) {
 				if (tmpResult == Result::OK) {
-					hidlBcsh = tmpBcshs;
+					ret = tmpValue;
 				}
-			});
-		}
-		if (hidlBcsh.size() == 4) {
-			ret = hidlBcsh[0];
-		}
+		});
 	}
 	return ret;
 }
@@ -85,7 +81,7 @@ static int set_brightness(struct pq_hal_module *module, int value)
 {
 	Result ret = Result::UNKNOWN;
 	if (mComposer != nullptr && module != nullptr) {
-		ret = mComposer->setBrightness(module->dpy, value);
+		ret = mComposer->setSWBrightness(module->dpy, value);
 	}
 	if (ret == Result::OK) {
 		return 0;
@@ -102,20 +98,14 @@ static int get_contrast(struct pq_hal_module *module)
 {
 	int ret = DEFAULT_CONTRAST;
 	if (mComposer != nullptr && module != nullptr) {
-		hidl_vec<uint32_t> hidlBcsh;
-		if (mComposer != nullptr && module != nullptr) {
-			mComposer->getBcsh(module->dpy, [&](const auto& tmpResult, const auto& tmpBcshs) {
+		 mComposer->getSWContrast(module->dpy,
+			 [&](const auto& tmpResult, const auto& tmpValue) {
 				if (tmpResult == Result::OK) {
-					hidlBcsh = tmpBcshs;
+					ret = tmpValue;
 				}
-			});
-		}
-		if (hidlBcsh.size() == 4) {
-			ret = hidlBcsh[1];
-		}
+		});
 	}
 	return ret;
-
 }
 
 /*
@@ -127,7 +117,7 @@ static int set_contrast(struct pq_hal_module *module, int value)
 {
 	Result ret = Result::UNKNOWN;
 	if (mComposer != nullptr && module != nullptr) {
-		ret = mComposer->setContrast(module->dpy, value);
+		ret = mComposer->setSWContrast(module->dpy, value);
 	}
 	if (ret == Result::OK) {
 		return 0;
@@ -144,17 +134,12 @@ static int get_saturation(struct pq_hal_module *module)
 {
 	int ret = DEFAULT_SATURATION;
 	if (mComposer != nullptr && module != nullptr) {
-		hidl_vec<uint32_t> hidlBcsh;
-		if (mComposer != nullptr && module != nullptr) {
-			mComposer->getBcsh(module->dpy, [&](const auto& tmpResult, const auto& tmpBcshs) {
+		 mComposer->getSWSaturation(module->dpy,
+			 [&](const auto& tmpResult, const auto& tmpValue) {
 				if (tmpResult == Result::OK) {
-					hidlBcsh = tmpBcshs;
+					ret = tmpValue;
 				}
-			});
-		}
-		if (hidlBcsh.size() == 4) {
-			ret = hidlBcsh[2];
-		}
+		});
 	}
 	return ret;
 }
@@ -168,7 +153,7 @@ static int set_saturation(struct pq_hal_module *module, int value)
 {
 	Result ret = Result::UNKNOWN;
 	if (mComposer != nullptr && module != nullptr) {
-		ret = mComposer->setSaturation(module->dpy, value);
+		ret = mComposer->setSWSaturation(module->dpy, value);
 	}
 	if (ret == Result::OK) {
 		return 0;
@@ -188,7 +173,7 @@ static int get_sharpness(struct pq_hal_module *module)
 		 mComposer->getSharpPeakingGain(module->dpy,
 			 [&](const auto& tmpResult, const auto& tmpValue) {
 				if (tmpResult == Result::OK) {
-					ret = tmpValue;
+					ret = (float)tmpValue / 1023 * 100;
 				}
 		});
 	}
@@ -203,8 +188,10 @@ static int get_sharpness(struct pq_hal_module *module)
 static int set_sharpness(struct pq_hal_module *module, int value)
 {
 	Result ret = Result::UNKNOWN;
+	int sharpPeakingGain = (float)value / 100 * 1023 + 1;
+	sharpPeakingGain = sharpPeakingGain > 1023 ? 1023: sharpPeakingGain;
 	if (mComposer != nullptr && module != nullptr) {
-		ret = mComposer->setSharpPeakingGain(module->dpy, value);
+		ret = mComposer->setSharpPeakingGain(module->dpy, sharpPeakingGain);
 	}
 	if (ret == Result::OK) {
 		return 0;
@@ -221,17 +208,12 @@ static int get_hue(struct pq_hal_module *module)
 {
 	int ret = DEFAULT_HUE;
 	if (mComposer != nullptr && module != nullptr) {
-		hidl_vec<uint32_t> hidlBcsh;
-		if (mComposer != nullptr && module != nullptr) {
-			mComposer->getBcsh(module->dpy, [&](const auto& tmpResult, const auto& tmpBcshs) {
+		 mComposer->getSWHue(module->dpy,
+			 [&](const auto& tmpResult, const auto& tmpValue) {
 				if (tmpResult == Result::OK) {
-					hidlBcsh = tmpBcshs;
+					ret = tmpValue;
 				}
-			});
-		}
-		if (hidlBcsh.size() == 4) {
-			ret = hidlBcsh[3];
-		}
+		});
 	}
 	return ret;
 }
@@ -245,7 +227,7 @@ static int set_hue(struct pq_hal_module *module, int value)
 {
 	Result ret = Result::UNKNOWN;
 	if (mComposer != nullptr && module != nullptr) {
-		ret = mComposer->setHue(module->dpy, value);
+		ret = mComposer->setSWHue(module->dpy, value);
 	}
 	if (ret == Result::OK) {
 		return 0;
@@ -254,13 +236,51 @@ static int set_hue(struct pq_hal_module *module, int value)
 	}
 }
 
+static int set_preset_color_temp_mode(struct pq_hal_module *module, int path, int index, uint32_t rgain, uint32_t ggain, uint32_t bgain)
+{
+	Result ret = Result::UNKNOWN;
+	rgain = (float)rgain / 255 * 511 + 1;
+	rgain =  rgain > 511 ? 511 : rgain;
+	ggain = (float)ggain / 255 * 511 + 1;
+	ggain = ggain > 511 ? 511 : ggain;
+	bgain = (float)bgain / 255 * 511 + 1;
+	bgain = bgain > 511 ? 511 : bgain;
+
+	if (mComposer != nullptr && module != nullptr)
+		ret = mComposer->setPresetWhiteBalance(module->dpy, path, index, rgain, ggain, bgain);
+		ret = mComposer->setWhiteBalanceMode(module->dpy, index);
+	if (ret == Result::OK) {
+		return 0;
+	} else {
+		return -1;
+	}
+
+}
+
+static int get_preset_color_temp_mode(struct pq_hal_module *module, int path,int index, uint32_t* rgain, uint32_t* ggain, uint32_t* bgain)
+{
+    android::hardware::hidl_vec<uint32_t> hidl_rgbgain(3);
+	if (mComposer != nullptr && module != nullptr)
+		mComposer->getPresetWhiteBalance(module->dpy, path, index, 
+			[&](const auto& tmpResult, const auto& tmpColorTemp)
+			{
+				if (tmpResult == Result::OK) {
+					hidl_rgbgain = tmpColorTemp;
+				}
+			});
+	*rgain = (float)hidl_rgbgain[0] / 511 * 255;
+	*ggain = (float)hidl_rgbgain[1] / 511 * 255;
+	*bgain = (float)hidl_rgbgain[2] / 511 * 255;
+	return index;
+}
+
 /*
  * get color temperature mode
  * @return color temperature mode, range[ui_color_temp_t]
  */
 static ui_color_temp_t get_color_temp_mode(struct pq_hal_module *module)
 {
-	int ret = COLOR_TEMP_STANDARD;
+	int ret = VmanPQ_COLOR_TEMP_STANDARD;
 	if (mComposer != nullptr && module != nullptr) {
 		mComposer->getWhiteBalanceMode(module->dpy,
 			[&](const auto& tmpResult, const auto& tmpIndex) {
@@ -280,7 +300,7 @@ static int reset_color_temp(struct pq_hal_module *module)
 {
 	Result ret = Result::UNKNOWN;
 	if (mComposer != nullptr && module != nullptr)
-		ret = mComposer->setWhiteBalanceMode(module->dpy, COLOR_TEMP_STANDARD);
+		ret = mComposer->setWhiteBalanceMode(module->dpy, VmanPQ_COLOR_TEMP_STANDARD);
 	if (ret == Result::OK) {
 		return 0;
 	} else {
@@ -316,7 +336,7 @@ static int get_wb_r_gain(struct pq_hal_module *module)
 		 mComposer->getRGain(module->dpy,
 			 [&](const auto& tmpResult, const auto& tmpValue) {
 				if (tmpResult == Result::OK) {
-					ret = tmpValue;
+					ret = (float)tmpValue / 511 * 255;
 				}
 		});
 	}
@@ -331,6 +351,8 @@ static int get_wb_r_gain(struct pq_hal_module *module)
 static int set_wb_r_gain(struct pq_hal_module *module, int value)
 {
 	Result ret = Result::UNKNOWN;
+	value = (float)value / 255 * 511 + 1;
+	value = value > 511 ? 511 : value;
 	if (mComposer != nullptr && module != nullptr) {
 		ret = mComposer->setRGain(module->dpy, value);
 	}
@@ -352,7 +374,7 @@ static int get_wb_g_gain(struct pq_hal_module *module)
 		 mComposer->getGGain(module->dpy,
 			 [&](const auto& tmpResult, const auto& tmpValue) {
 				if (tmpResult == Result::OK) {
-					ret = tmpValue;
+					ret = (float)tmpValue / 511 * 255;
 				}
 		});
 	}
@@ -367,6 +389,8 @@ static int get_wb_g_gain(struct pq_hal_module *module)
 static int set_wb_g_gain(struct pq_hal_module *module, int value)
 {
 	Result ret = Result::UNKNOWN;
+	value = (float)value / 255 * 511 + 1;
+	value = value > 511 ? 511 : value;
 	if (mComposer != nullptr && module != nullptr) {
 		ret = mComposer->setGGain(module->dpy, value);
 	}
@@ -388,7 +412,7 @@ static int get_wb_b_gain(struct pq_hal_module *module)
 		 mComposer->getBGain(module->dpy,
 			 [&](const auto& tmpResult, const auto& tmpValue) {
 				if (tmpResult == Result::OK) {
-					ret = tmpValue;
+					ret = (float)tmpValue / 511 * 255;
 				}
 		});
 	}
@@ -403,6 +427,8 @@ static int get_wb_b_gain(struct pq_hal_module *module)
 static int set_wb_b_gain(struct pq_hal_module *module, int value)
 {
 	Result ret = Result::UNKNOWN;
+	value = (float)value / 255 * 511 + 1;
+	value = value > 511 ? 511 : value;
 	if (mComposer != nullptr && module != nullptr) {
 		ret = mComposer->setBGain(module->dpy, value);
 	}
@@ -468,6 +494,45 @@ static int get_wb_b_offset(struct pq_hal_module *module)
 static int set_wb_b_offset(struct pq_hal_module *module, int value)
 {
 	return 0;
+}
+
+/*
+ * set CSC status
+ * @param value: status, range[0-1]
+ * @return result [0: successfully, <0: failure]
+ */
+static int set_csc_enable(struct pq_hal_module *module, int value)
+{
+	Result ret = Result::UNKNOWN;
+	if (mComposer != nullptr && module != nullptr) {
+		ret = mComposer->setCscEnable(value);
+		if (!value) {
+			ret = mComposer->setWhiteBalance(module->dpy, 256, 256, 256);
+		}
+	}
+	if (ret == Result::OK) {
+		return 0;
+	} else {
+		return -1;
+	}
+}
+
+/*
+ * get CSC status
+ * @return status, range[0-1]
+ */
+static int get_csc_enable(struct pq_hal_module *module)
+{
+	int ret = 0;
+	if (mComposer != nullptr && module != nullptr) {
+		 mComposer->getCscEnable(
+			 [&](const auto& tmpResult, const auto& tmpValue) {
+				if (tmpResult == Result::OK) {
+					ret = tmpValue;
+				}
+		});
+	}
+	return ret;
 }
 
 /*
@@ -543,6 +608,42 @@ static int get_acm_enable(struct pq_hal_module *module)
 }
 
 /*
+ * set Sharp status
+ * @param value: status, range[0-1]
+ * @return result [0: successfully, <0: failure]
+ */
+static int set_sharp_enable(struct pq_hal_module *module, int value)
+{
+	Result ret = Result::UNKNOWN;
+	if (mComposer != nullptr && module != nullptr) {
+		ret = mComposer->setSharpEnable(value);
+	}
+	if (ret == Result::OK) {
+		return 0;
+	} else {
+		return -1;
+	}
+}
+
+/*
+ * get Sharp status
+ * @return status, range[0-1]
+ */
+static int get_sharp_enable(struct pq_hal_module *module)
+{
+	int ret = 0;
+	if (mComposer != nullptr && module != nullptr) {
+		 mComposer->getSharpEnable(
+			 [&](const auto& tmpResult, const auto& tmpValue) {
+				if (tmpResult == Result::OK) {
+					ret = tmpValue;
+				}
+		});
+	}
+	return ret;
+}
+
+/*
  * set PQ status
  * @param value: status, range[0-1]
  * @return result [0: successfully, <0: failure]
@@ -579,6 +680,28 @@ static int get_pq_enable(struct pq_hal_module *module)
 }
 
 /*
+ * set HDR status
+ * @param value: status, range[0-1]
+ * @return result [0: successfully, <0: failure]
+ */
+static int set_hdr_enable(struct pq_hal_module *module, int value)
+{
+	char prop_value[4] = {0};
+	sprintf(prop_value, "%d", value == 1 ? 0 : 1);
+	return property_set("persist.vendor.hwc.hdr_force_disable", prop_value);
+}
+
+/*
+ * get HDR status
+ * @return status, range[0-1]
+ */
+static int get_hdr_enable(struct pq_hal_module *module)
+{
+	int ret = property_get_int32("persist.vendor.hwc.hdr_force_disable", 0);
+	return ret == 1 ? 0 : 1;
+}
+
+/*
  * set picture mode
  * @param value: picture mode, range[ui_picture_mode_t]
  * @return result [0: successfully, <0: failure]
@@ -602,7 +725,7 @@ static int set_picture_mode(struct pq_hal_module *module, ui_picture_mode_t valu
  */
 static ui_picture_mode_t get_picture_mode(struct pq_hal_module *module)
 {
-	int ret = PICTURE_MODE_STANDARD;
+	int ret = VmanPQ_PICTURE_MODE_STANDARD;
 	if (mComposer != nullptr && module != nullptr) {
 		 mComposer->getBCSHMode(module->dpy,
 			 [&](const auto& tmpResult, const auto& tmpValue) {
@@ -816,7 +939,7 @@ static int reset_3dlut_data(struct pq_hal_module *module)
  */
 static ui_aspect_mode_t get_aspect_mode(struct pq_hal_module *module)
 {
-	return ASPECT_16X9;
+	return VmanPQ_ASPECT_16X9;
 }
 
 /*
@@ -835,7 +958,15 @@ static int set_aspect_mode(struct pq_hal_module *module, ui_aspect_mode_t value)
 */
 static ui_color_range_t get_color_range(struct pq_hal_module *module)
 {
-	return COLOR_RANGE_AUTO;
+	ui_color_range_t ret = VmanPQ_COLOR_RANGE_AUTO;
+	char prop_value[PROPERTY_VALUE_MAX] = {0};
+	property_get("persist.vendor.tvinput.rkpq.src.range", prop_value, NULL);
+	if (!strcmp(prop_value, "limit")) {
+		ret = VmanPQ_COLOR_RANGE_LIMIT;
+	} else if (!strcmp(prop_value, "full")) {
+		ret = VmanPQ_COLOR_RANGE_FULL;
+	}
+	return ret;
 }
 
 /*
@@ -845,7 +976,15 @@ static ui_color_range_t get_color_range(struct pq_hal_module *module)
  */
 static int set_color_range(struct pq_hal_module *module, ui_color_range_t value)
 {
-	return 0;
+	char prop_value[PROPERTY_VALUE_MAX] = {0};
+	if (value == VmanPQ_COLOR_RANGE_AUTO) {
+		sprintf(prop_value, "%s", "auto");
+	} else if (value == VmanPQ_COLOR_RANGE_LIMIT) {
+		sprintf(prop_value, "%s", "limit");
+	} else if (value == VmanPQ_COLOR_RANGE_FULL) {
+		sprintf(prop_value, "%s", "full");
+	}
+	return property_set("persist.vendor.tvinput.rkpq.src.range", prop_value);
 }
 
 /*
@@ -867,7 +1006,8 @@ int get_backlight(struct pq_hal_module *module)
 		ALOGE("Error read %s: len %d\n", BACKLIGHT_PATH, len);
 		ret = -1;
 	} else {
-		ret = atoi(buf) * 100 / 255;
+		ret = atoi(buf) * 100 / 255 + 1;
+		ret = ret > 100 ? 100 : ret;
 	}
 	close(fd);
 	return ret;
@@ -888,7 +1028,7 @@ int set_backlight(struct pq_hal_module *module, int value)
 		ALOGE("Error opening %s: %s\n", BACKLIGHT_PATH, buf);
 		return -1;
 	}
-	sprintf(buf, "%d", value * 255 / 100 + 1);
+	sprintf(buf, "%d", value * 255 / 100);
 	len = write(fd, buf, strlen(buf));
 	if (len < 0) {
 		ALOGE("Error writing to %s: %s\n", BACKLIGHT_PATH, buf);
@@ -917,6 +1057,183 @@ static int get_max_backlight(struct pq_hal_module *module)
 static int set_max_backlight(struct pq_hal_module *module, int value)
 {
 	return 0;
+}
+static int get_dci_mode(struct pq_hal_module *module)
+{
+	int ret = 0;
+	if (mComposer != nullptr && module != nullptr) {
+		 mComposer->getDciMode(module->dpy,
+			 [&](const auto& tmpResult, const auto& tmpValue) {
+				if (tmpResult == Result::OK) {
+					ret = tmpValue;
+				}
+		});
+	}
+	return ret;
+}
+
+static int set_dci_mode(struct pq_hal_module *module, int mode)
+{
+	Result ret = Result::UNKNOWN;
+	if (mComposer != nullptr && module != nullptr) {
+		ret = mComposer->setDciMode(module->dpy, mode);
+	}
+	if (ret == Result::OK) {
+		return 0;
+	} else {
+		return -1;
+	}
+}
+
+static int get_acm_mode(struct pq_hal_module *module)
+{
+	int ret = 0;
+	if (mComposer != nullptr && module != nullptr) {
+		 mComposer->getAcmMode(module->dpy,
+			 [&](const auto& tmpResult, const auto& tmpValue) {
+				if (tmpResult == Result::OK) {
+					ret = tmpValue;
+				}
+		});
+	}
+	return ret;
+}
+
+static int set_acm_mode(struct pq_hal_module *module, int mode)
+{
+	Result ret = Result::UNKNOWN;
+	if (mComposer != nullptr && module != nullptr) {
+		ret = mComposer->setAcmMode(module->dpy, mode);
+	}
+	if (ret == Result::OK) {
+		return 0;
+	} else {
+		return -1;
+	}
+}
+
+static int set_preset_picture_mode(struct pq_hal_module *module, int  path, int index, int brightness, int contrast, int saturation, int hue)
+{
+	Result ret = Result::UNKNOWN;
+	if (mComposer != nullptr && module != nullptr)
+		ret = mComposer->setPresetBcsh(module->dpy, path, index, brightness, contrast, saturation, hue);
+	if (ret == Result::OK) {
+		return 0;
+	} else {
+		return -1;
+	}
+}
+
+static int get_preset_picture_mode(struct pq_hal_module *module, int  path, int index, int *brightness, int *contrast, int *saturation, int *hue)
+{
+	int ret = -1;
+	hidl_vec<uint32_t> hidlBcsh;
+	if (mComposer != nullptr && module != nullptr)
+	{
+		mComposer->getPresetBcsh(module->dpy, path, index,
+			[&](const auto& tmpResult, const auto& tmpBcshs)
+		{
+			if (tmpResult == Result::OK) {
+				hidlBcsh = tmpBcshs;
+				*brightness = hidlBcsh[0];
+				*contrast = hidlBcsh[1];
+				*saturation = hidlBcsh[2];
+				*hue = hidlBcsh[3];
+				ret = 0;
+			}
+		});
+	}
+	return ret;
+}
+
+static int set_preset_gamma_mode(struct pq_hal_module *module, int path, int index, uint32_t size, uint16_t* r, uint16_t* g, uint16_t* b)
+{
+	Result ret = Result::UNKNOWN;
+	std::vector<uint16_t> hidlRed;
+	std::vector<uint16_t> hidlGreen;
+	std::vector<uint16_t> hidlBlue;
+
+	for (int i=0; i < size; i++) {
+		hidlRed.push_back(r[i]);
+		hidlGreen.push_back(g[i]);
+		hidlBlue.push_back(b[i]);
+	}
+
+	if (mComposer != nullptr && module != nullptr)
+		ret = mComposer->setPresetGamma(module->dpy, path, index, size, hidlRed, hidlGreen, hidlBlue);
+	if (ret == Result::OK) {
+		return 0;
+	} else {
+		return -1;
+	}
+}
+
+static int get_preset_gamma_mode(struct pq_hal_module *module, int path, int index, uint32_t size, uint16_t* r, uint16_t* g, uint16_t* b)
+{
+	int ret = -1;
+	hidl_vec<uint16_t> hidlgamma;
+	if (mComposer != nullptr && module != nullptr)
+	{
+		mComposer->getPresetGamma(module->dpy, path, index,
+			[&](const auto& tmpResult, const auto& tempGamma)
+		{
+			if (tmpResult == Result::OK) {
+				hidlgamma = tempGamma;
+				for (int i = 0; i < size; i++) {
+					r[i] = hidlgamma[i];
+					g[i] = hidlgamma[1024 + i];
+					b[i] = hidlgamma[2*1024 + i];
+				}
+				ret = 0;
+			}
+		});
+	}
+	return ret;
+}
+
+static int set_preset_3dlut_mode(struct pq_hal_module *module, int path, int index, uint32_t size, uint16_t* r, uint16_t* g, uint16_t* b)
+{
+	Result ret = Result::UNKNOWN;
+	std::vector<uint16_t> hidlRed;
+	std::vector<uint16_t> hidlGreen;
+	std::vector<uint16_t> hidlBlue;
+
+	for (int i=0; i < size; i++) {
+		hidlRed.push_back(r[i]);
+		hidlGreen.push_back(g[i]);
+		hidlBlue.push_back(b[i]);
+	}
+
+	if (mComposer != nullptr && module != nullptr)
+		ret = mComposer->setPreset3DLut(module->dpy, path, index, size, hidlRed, hidlGreen, hidlBlue);
+	if (ret == Result::OK) {
+		return 0;
+	} else {
+		return -1;
+	}
+}
+
+static int get_preset_3dlut_mode(struct pq_hal_module *module, int path, int index, uint32_t size, uint16_t* r, uint16_t* g, uint16_t* b)
+{
+	int ret = -1;
+	hidl_vec<uint16_t> hidl3dlut;
+	if (mComposer != nullptr && module != nullptr)
+	{
+		mComposer->getPreset3DLut(module->dpy, path, index,
+			[&](const auto& tmpResult, const auto& temp3DLut)
+		{
+			if (tmpResult == Result::OK) {
+				hidl3dlut = temp3DLut;
+				for (int i = 0; i < size; i++) {
+					r[i] = hidl3dlut[i];
+					g[i] = hidl3dlut[4913 + i];
+					b[i] = hidl3dlut[2*4913 + i];
+				}
+				ret = 0;
+			}
+		});
+	}
+	return ret;
 }
 
 static struct hw_module_methods_t pq_hal_module_methods =
@@ -949,6 +1266,8 @@ struct pq_hal_module HAL_MODULE_INFO_SYM =
 	.set_hue = set_hue,
 	.set_color_temp_mode = set_color_temp_mode,
 	.get_color_temp_mode = get_color_temp_mode,
+	.set_preset_color_temp_mode = set_preset_color_temp_mode,
+	.get_preset_color_temp_mode = get_preset_color_temp_mode,
 	.reset_color_temp = reset_color_temp,
 
 	.get_wb_r_gain = get_wb_r_gain,
@@ -965,12 +1284,18 @@ struct pq_hal_module HAL_MODULE_INFO_SYM =
 	.get_wb_b_offset = get_wb_b_offset,
 	.set_wb_b_offset = set_wb_b_offset,
 
+	.get_csc_enable = get_csc_enable,
+	.set_csc_enable = set_csc_enable,
 	.set_dci_enable = set_dci_enable,
 	.get_dci_enable = get_dci_enable,
 	.set_acm_enable = set_acm_enable,
 	.get_acm_enable = get_acm_enable,
+	.get_sharp_enable = get_sharp_enable,
+	.set_sharp_enable = set_sharp_enable,
 	.set_pq_enable = set_pq_enable,
 	.get_pq_enable = get_pq_enable,
+	.set_hdr_enable = set_hdr_enable,
+	.get_hdr_enable = get_hdr_enable,
 
 	.set_picture_mode = set_picture_mode,
 	.get_picture_mode = get_picture_mode,
@@ -994,4 +1319,15 @@ struct pq_hal_module HAL_MODULE_INFO_SYM =
 	.set_backlight = set_backlight,
 	.get_max_backlight = get_max_backlight,
 	.set_max_backlight = set_max_backlight,
+	.get_dci_mode = get_dci_mode,
+	.set_dci_mode = set_dci_mode,
+	.get_acm_mode = get_acm_mode,
+	.set_acm_mode = set_acm_mode,
+	.set_preset_picture_mode = set_preset_picture_mode,
+	.get_preset_picture_mode = get_preset_picture_mode,
+	.set_preset_gamma_mode = set_preset_gamma_mode,
+	.get_preset_gamma_mode = get_preset_gamma_mode,
+	.set_preset_3dlut_mode = set_preset_3dlut_mode,
+	.get_preset_3dlut_mode = get_preset_3dlut_mode,
+
 };

@@ -14,7 +14,9 @@ LOCAL_HEADER_LIBRARIES += \
 
 LOCAL_VENDOR_MODULE := true
 LOCAL_CLANG := true
-LOCAL_MODULE := libvman-audio
+LOCAL_MODULE := vman_audio_hal.default
+LOCAL_MULTILIB := both
+LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_CFLAGS := -Wno-unused-parameter
 LOCAL_SHARED_LIBRARIES := liblog
 include $(BUILD_SHARED_LIBRARY)
@@ -33,7 +35,9 @@ LOCAL_HEADER_LIBRARIES += \
 
 LOCAL_VENDOR_MODULE := true
 LOCAL_CLANG := true
-LOCAL_MODULE := libvman-pq
+LOCAL_MODULE := vman_pq_hal.default
+LOCAL_MULTILIB := both
+LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_CFLAGS := -Wno-unused-parameter
 LOCAL_SHARED_LIBRARIES := liblog \
                           libbinder \
@@ -58,7 +62,9 @@ LOCAL_HEADER_LIBRARIES += \
 
 LOCAL_VENDOR_MODULE := true
 LOCAL_CLANG := true
-LOCAL_MODULE := libvman-display
+LOCAL_MODULE := vman_display_hal.default
+LOCAL_MULTILIB := both
+LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_CFLAGS := -Wno-unused-parameter
 LOCAL_SHARED_LIBRARIES := liblog \
                           libbinder \
@@ -83,7 +89,9 @@ LOCAL_HEADER_LIBRARIES += \
 
 LOCAL_VENDOR_MODULE := true
 LOCAL_CLANG := true
-LOCAL_MODULE := libvman-power
+LOCAL_MODULE := vman_power_hal.default
+LOCAL_MULTILIB := both
+LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_CFLAGS := -Wno-unused-parameter
 LOCAL_SHARED_LIBRARIES := liblog
 include $(BUILD_SHARED_LIBRARY)
@@ -102,7 +110,9 @@ LOCAL_HEADER_LIBRARIES += \
 
 LOCAL_VENDOR_MODULE := true
 LOCAL_CLANG := true
-LOCAL_MODULE := libvman-sys
+LOCAL_MODULE := vman_sys_hal.default
+LOCAL_MULTILIB := both
+LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_CFLAGS := -Wno-unused-parameter
 LOCAL_SHARED_LIBRARIES := liblog \
                           libbinder \
