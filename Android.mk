@@ -54,6 +54,9 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := DisplayModule.cpp
 
 LOCAL_C_INCLUDES := \
+        external/libdrm \
+        external/libdrm/include/drm \
+        external/tinyxml2 \
         hardware/libhardware/include \
         $(LOCAL_PATH)/
 
@@ -72,6 +75,7 @@ LOCAL_SHARED_LIBRARIES := liblog \
                           libutils \
                           libcutils \
                           libhidlbase \
+                          libtinyxml2 \
                           rockchip.hardware.outputmanager@1.0
 include $(BUILD_SHARED_LIBRARY)
 

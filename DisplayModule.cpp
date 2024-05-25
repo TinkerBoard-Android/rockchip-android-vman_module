@@ -2,6 +2,8 @@
 #include <log/log.h>
 #include <rockchip/hardware/outputmanager/1.0/IRkOutputManager.h>
 #include "DisplayModule.h"
+#include <xf86drmMode.h>
+#include <tinyxml2.h>
 
 #ifdef LOG_TAG
 #undef LOG_TAG
@@ -45,6 +47,77 @@ enum hdmi_port {
 	HDMI_PORT1 = 1,
 	HDMI_PORT2,
 };
+
+static int filter_whitelist(const std::string& res, char* mode)
+{
+  tinyxml2::XMLDocument doc;
+
+  doc.LoadFile("/system/usr/share/resolution_white.xml");
+
+  tinyxml2::XMLElement* root=doc.RootElement();
+  /* usr tingxml2 to parse resolution.xml */
+  if (!root)
+    return -1;
+
+  tinyxml2::XMLElement* resolution =root->FirstChildElement("resolution");
+
+  while (resolution) {
+    drmModeModeInfo m;
+    int info_hdisplay = 0, info_vdisplay = 0, info_vrefresh = 0;
+
+    #define PARSE(x) \
+      tinyxml2::XMLElement* _##x = resolution->FirstChildElement(#x); \
+      if (!_##x) { \
+        ALOGE("------> failed to parse %s\n", #x); \
+        resolution = resolution->NextSiblingElement(); \
+        continue; \
+      } \
+      m.x = atoi(_##x->GetText())
+
+    #define PARSE_HEX(x) \
+      tinyxml2::XMLElement* _##x = resolution->FirstChildElement(#x); \
+      if (!_##x) { \
+        ALOGE("------> failed to parse %s\n", #x); \
+        resolution = resolution->NextSiblingElement(); \
+        continue; \
+      } \
+      sscanf(_##x->GetText(), "%x", &m.x);
+
+    PARSE(clock);
+    PARSE(hdisplay);
+    PARSE(hsync_start);
+    PARSE(hsync_end);
+    PARSE(hskew);
+    PARSE(vdisplay);
+    PARSE(vsync_start);
+    PARSE(vsync_end);
+    PARSE(vscan);
+    PARSE(vrefresh);
+    PARSE(htotal);
+    PARSE(vtotal);
+    PARSE_HEX(flags);
+
+    sscanf(res.c_str(),"%dx%dp%d", &info_hdisplay, &info_vdisplay, &info_vrefresh);
+
+    if ((info_hdisplay == m.hdisplay) && (info_vdisplay == m.vdisplay)
+	&& (info_vrefresh == m.vrefresh)) {
+	sprintf(mode,"%dx%d@%f-%d-%d-%d-%d-%d-%d-%x-%d",
+		m.hdisplay, m.vdisplay,
+		(float)m.vrefresh, m.hsync_start, m.hsync_end,
+		m.htotal,m.vsync_start,
+		m.vsync_end, m.vtotal,
+		m.flags, m.clock);
+
+	ALOGI("set resolution:%s\n", mode);
+	return 0;
+    }
+
+    resolution = resolution->NextSiblingElement();
+  }
+
+  return -1;
+}
+
 
 static int get_hdmi_status(enum hdmi_port port)
 {
@@ -293,6 +366,11 @@ std::string get_display_resolution(struct display_hal_module* module) {
  * @return result[0: successfully, <0: failure]
  */
 static int set_display_resolution(struct display_hal_module* module, const std::string& resolution) {
+
+	char mode[100];
+	Result res = Result::UNKNOWN;
+
+	memset(mode, 0, 100);
 	if (module == nullptr) {
 		return -1;
 	}
@@ -302,7 +380,14 @@ static int set_display_resolution(struct display_hal_module* module, const std::
 		return -1;
 	}
 
-	Result res = mComposer->setMode(module->dpy, resolution);
+	if (strncmp(resolution.c_str(), "Auto", 4) == 0) {
+		ALOGI("set resolution: [Auto] \n");
+		res = mComposer->setMode(module->dpy, resolution);
+	} else if (filter_whitelist(resolution, mode) == 0) {
+		res = mComposer->setMode(module->dpy, mode);
+	} else {
+		ALOGE("set resolutionp fail, [%s] is invalid resolution!\n", resolution.c_str());
+	}
 
 	return (res == Result::OK ? 0 : -1);
 }
